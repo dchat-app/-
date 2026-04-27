@@ -175,6 +175,14 @@ async function sendReq() { const v = document.getElementById('addInput').value.t
 async function acceptReq(fid) { await api('/acceptRequest', { userID, targetID: fid }); loadHome(); }
 function logout() { localStorage.clear(); location.reload(); }
 if(userID) loadHome();
+// Register Service Worker (PWA)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log("Service Worker Registered"))
+      .catch(err => console.log("SW Error:", err));
+  });
+}  
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
