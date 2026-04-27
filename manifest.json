@@ -1,20 +1,19 @@
 {
-  "name": "D-Chat",
-  "short_name": "D-Chat",
-  "description": "simple chatting app",
+  "name": "D-CHAT",
+  "short_name": "D-CHAT",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#111111",
+  "background_color": "#000000",
+  "theme_color": "#00d95a",
   "icons": [
     {
       "src": "logo.png",
-      "sizes": "75x75",
+      "sizes": "192x192",
       "type": "image/png"
     },
     {
       "src": "logo.png",
-      "sizes": "150x150",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
