@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>D-CHAT</title>
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+<style>
+:root { --green: #00d95a; --bg: #000000; --panel: #121212; --text: #ffffff; --red: #ff4444; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+body, html { margin: 0; padding: 0; height: 100svh; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; }
+#app { display: flex; flex-direction: column; height: 100svh; }
+
+header { padding: 15px; border-bottom: 1px solid #1a1a1a; display: flex; align-items: center; background: var(--bg); z-index: 10; }
+header h2 { margin: 0; color: var(--green); font-size: 22px; font-weight: 900; }
+
+.view { display: none; flex: 1; flex-direction: column; padding: 15px; overflow-y: auto; padding-bottom: 100px; }
+.view.active { display: flex; }
+
+input { height: 50px; background: #1a1a1a; border: 1px solid var(--green); border-radius: 12px; padding: 0 15px; color: white; font-size: 16px; width: 100%; margin-bottom: 10px; }
+
+.action-btn { background: var(--green); border: none; height: 50px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; color: black; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 5px; }
+
+.tab-switcher { display: flex; background: var(--panel); border-radius: 12px; margin-bottom: 15px; padding: 4px; }
+.tab-btn { flex: 1; padding: 12px; border: none; background: none; color: #888; border-radius: 8px; font-weight: bold; cursor: pointer; }
+.tab-btn.active { background: var(--green); color: black; }
+
+.friend-card { background: var(--panel); padding: 18px; border-radius: 20px; margin-bottom: 12px; display: flex; align-items: center; border-left: 5px solid var(--green); }
+.card-content { flex: 1; cursor: pointer; }
+.unfriend-btn { color: var(--red); padding: 10px; font-weight: bold; cursor: pointer; font-size: 12px; }
+
+#chat-flow { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px; }
+.bubble { max-width: 80%; padding: 12px 18px; border-radius: 20px; font-size: 15px; word-wrap: break-word; }
+.bubble.me { background: var(--green); color: #000; align-self: flex-end; border-bottom-right-radius: 4px; }
+.bubble.friend { background: #fff; color: #000; align-self: flex-start; border-bottom-left-radius: 4px; }
+
+.input-group { display: flex; gap: 8px; padding: 10px; background: #000; position: sticky; bottom: 0; align-items: center; }
+.circle-btn { width: 50px; height: 50px; background: var(--green); border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+
+nav { display: flex; background: #0a0a0a; border-top: 1px solid #1a1a1a; padding: 10px; justify-content: space-around; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+.nav-item { color: #444; padding: 10px; border-radius: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+.nav-item.active { color: var(--green); background: rgba(0, 217, 90, 0.1); }
+.nav-item svg { width: 28px; height: 28px; fill: currentColor; }
+
+#authOverlay { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; justify-content: center; padding: 40px; }
+.logout-btn { background: var(--red); color: white; border: none; padding: 18px; border-radius: 15px; font-weight: bold; width: 100%; margin-top: 20px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="authOverlay" style="display:none">
+  <h1 style="color:var(--green); text-align:center; margin-bottom: 40px; font-size: 42px;">D-CHAT</h1>
+  <input id="authUser" placeholder="Username">
+  <input id="authPass" type="password" placeholder="Password">
+  <button onclick="doAuth('/login')" class="action-btn" style="border-radius:30px;">LOG IN</button>
+  <button onclick="doAuth('/signup')" style="background:none; color:var(--green); border:none; margin-top:15px; width:100%; font-weight:bold; cursor:pointer;">Create Account</button>
+</div>
+
+<div id="app">
+  <header><h2 id="mainTitle">Home</h2></header>
+  
+  <div id="view-home" class="view active">
+    <div class="input-group" style="padding: 0 0 15px 0;">
+      <input id="addInput" placeholder="User ID or Name" style="margin-bottom:0; border-radius:30px;">
+      <button onclick="sendReq()" class="circle-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+    </div>
+    <div class="tab-switcher">
+      <button class="tab-btn active" id="btn-friends" onclick="setTab('friends')">Friends</button>
+      <button class="tab-btn" id="btn-reqs" onclick="setTab('reqs')">Requests</button>
+    </div>
+    <div id="homeList"></div>
+  </div>
+
+  <div id="view-chat" class="view">
+    <div id="chat-flow"></div>
+    <div class="input-group">
+      <input id="msgInput" placeholder="Message..." onkeydown="if(event.key==='Enter') sendMsg()" style="margin-bottom:0; border-radius:30px;">
+      <button class="circle-btn" onclick="sendMsg()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="black" style="transform:translateX(2px)"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="view-settings" class="view">
+    <div style="background:var(--panel); padding:15px; border-radius:15px; margin-bottom:15px; border:1px solid #222;">
+      <div style="color:#888; font-size:11px; font-weight:bold; text-transform:uppercase;">Account Details</div>
+      <p style="margin:8px 0 0 0; font-size:14px; color:#aaa;">Username: <span id="my-name" style="color:#fff; font-weight:bold;">Loading...</span></p>
+      <p style="margin:5px 0 0 0; font-size:14px; color:#aaa;">User ID: <span id="my-id" style="color:var(--green); font-family:monospace;"></span></p>
+    </div>
+    
+    <div style="background:var(--panel); padding:15px; border-radius:15px; border:1px solid #222;">
+      <div style="color:#888; font-size:11px; font-weight:bold; text-transform:uppercase; margin-bottom:10px;">Update Display Name</div>
+      <input id="newUsername" placeholder="New Display Name">
+      <input id="confirmPassUser" type="password" placeholder="Confirm Password">
+      <button class="action-btn" onclick="updateProfile('username')">UPDATE NAME</button>
+      
+      <hr style="border:0; border-top:1px solid #222; margin:20px 0;">
+      
+      <div style="color:#888; font-size:11px; font-weight:bold; text-transform:uppercase; margin-bottom:10px;">Change Password</div>
+      <input id="currPass" type="password" placeholder="Current Password">
+      <input id="newPass" type="password" placeholder="New Password">
+      <button class="action-btn" onclick="updateProfile('password')">CHANGE PASSWORD</button>
+    </div>
+
+    <button onclick="logout()" class="logout-btn">LOGOUT</button>
+  </div>
+
+  <nav>
+    <div class="nav-item active" id="nav-home" onclick="showView('home')">
+      <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    </div>
+    <div class="nav-item" id="nav-chat" onclick="showView('chat')">
+      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/></svg>
+    </div>
+    <div class="nav-item" id="nav-settings" onclick="showView('settings')">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+    </div>
+  </nav>
+</div>
+
+<script>
+// FULL API URL FOR CONNECTION
+const API_BASE = "https://d-chat.d-chat2345-0a6.workers.dev";
+const P_KEY = "bca8b337b8b15aab83f8";
+const P_CLUSTER = "eu";
+
+let userID = localStorage.getItem('dchat_id');
+let currentPeer = null, currentPeerName = "", currentSub = null, homeTab = 'friends';
+const pusher = new Pusher(P_KEY, { cluster: P_CLUSTER });
+
+if (!userID) document.getElementById('authOverlay').style.display = 'flex';
+
+async function api(path, body = null) {
+  const options = {
+    method: body ? 'POST' : 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (body) options.body = JSON.stringify(body);
+
+  try {
+    const r = await fetch(API_BASE + path, options);
+    return await r.json();
+  } catch (err) {
+    console.error("API Error:", err);
+    return { msg: "Connection failed" };
+  }
+}
+
+async function doAuth(path) {
+  const user = document.getElementById('authUser').value.trim();
+  const pass = document.getElementById('authPass').value.trim();
+  if(!user || !pass) return alert("Missing fields");
+  const res = await api(path, { username: user, password: pass });
+  if (res.userID) { 
+    localStorage.setItem('dchat_id', res.userID); 
+    location.reload(); 
+  } else {
+    alert(res.msg || "Auth failed");
+  }
+}
+
+async function fetchMyProfile() {
+  if (!userID) return;
+  const res = await api('/me?userID=' + userID);
+  if (res.name) {
+    document.getElementById('my-name').innerText = res.name;
+    document.getElementById('my-id').innerText = userID;
+  }
+}
+
+function showView(v) {
+  document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.getElementById('nav-' + v).classList.add('active');
+  
+  const title = document.getElementById('mainTitle');
+  if(v === 'home') { title.innerText = 'Home'; loadHome(); }
+  else if(v === 'chat') { title.innerText = currentPeerName || 'Chat'; }
+  else if(v === 'settings') { 
+    title.innerText = 'Settings'; 
+    fetchMyProfile();
+  }
+}
+
+function setTab(t) { 
+  homeTab = t; loadHome(); 
+  document.getElementById('btn-friends').className = 'tab-btn ' + (t==='friends'?'active':'');
+  document.getElementById('btn-reqs').className = 'tab-btn ' + (t==='reqs'?'active':'');
+}
+
+async function loadHome() {
+  if(!userID) return;
+  const data = await api('/syncHome?userID=' + userID);
+  if(!data || !data.users) return;
+  const list = homeTab === 'friends' ? data.friends : data.requests;
+  let html = '';
+  list.forEach(fid => {
+    const u = data.users.find(x => x.id === fid) || { name: 'User' };
+    html += `
+    <div class="friend-card">
+      <div class="card-content" onclick="${homeTab==='friends'?'openChat(\''+fid+'\',\''+u.name+'\')':'acceptReq(\''+fid+'\')'}">
+        <h3 style="margin:0">${u.name}</h3>
+        <p style="margin:0;color:#666;font-size:12px">${homeTab==='friends'?'Tap to chat':'Wants to be friends'}</p>
+      </div>
+      ${homeTab==='friends' ? `<div class="unfriend-btn" onclick="unfriend('${fid}')">Remove</div>` : `<span style="color:var(--green); font-weight:bold;">✔</span>`}
+    </div>`;
+  });
+  document.getElementById('homeList').innerHTML = html || '<p style="text-align:center;color:#444;margin-top:50px">No entries</p>';
+}
+
+function openChat(fid, name) {
+  currentPeer = fid; currentPeerName = name;
+  showView('chat');
+  const room = [userID, fid].sort().join('_');
+  if (currentSub) pusher.unsubscribe(currentSub);
+  currentSub = room;
+  const channel = pusher.subscribe(room);
+  channel.bind('msg', d => { if (d.senderID !== userID) renderMsg(d); });
+  document.getElementById('chat-flow').innerHTML = '';
+  api(`/messages?userID=${userID}&peerID=${fid}`).then(msgs => { if(Array.isArray(msgs)) msgs.forEach(renderMsg); });
+}
+
+function renderMsg(m) {
+  const d = document.createElement('div');
+  d.className = 'bubble ' + (m.senderID === userID ? 'me' : 'friend');
+  d.innerText = m.text;
+  const flow = document.getElementById('chat-flow');
+  flow.appendChild(d);
+  flow.scrollTop = flow.scrollHeight;
+}
+
+async function sendMsg() {
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text || !currentPeer) return;
+  input.value = '';
+  renderMsg({ senderID: userID, text });
+  await api('/send', { senderID: userID, receiverID: currentPeer, text });
+}
+
+async function sendReq() {
+  const val = document.getElementById('addInput').value.trim();
+  if (!val) return;
+  await api('/friendRequest', { userID, targetID: val });
+  document.getElementById('addInput').value = '';
+  alert('Request Sent');
+}
+
+async function acceptReq(fid) { 
+  await api('/acceptRequest', { userID, targetID: fid }); 
+  loadHome(); 
+}
+
+async function unfriend(fid) {
+  if(!confirm('Unfriend this user?')) return;
+  await api('/unfriend', { userID, targetID: fid });
+  loadHome();
+}
+
+async function updateProfile(type) {
+  let body = { userID };
+  if(type === 'username') {
+    body.name = document.getElementById('newUsername').value;
+    body.confirmPass = document.getElementById('confirmPassUser').value;
+  } else {
+    body.oldPass = document.getElementById('currPass').value;
+    body.pass = document.getElementById('newPass').value;
+  }
+  const res = await api('/updateProfile', body);
+  alert(res.msg || "Update successful");
+  if (res.ok) fetchMyProfile();
+}
+
+function logout() { localStorage.clear(); location.reload(); }
+if(userID) loadHome();
+</script>
+</body>
+</html>
+
