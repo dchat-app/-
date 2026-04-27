@@ -1,16 +1,23 @@
 {
-  "name": "D-CHAT",
   "short_name": "D-CHAT",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "name": "D-CHAT Messenger",
   "icons": [
     {
-      "src": "https://i.imgur.com/vjwwPg7.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "https://img.icons8.com/fluency/192/00d95a/chat.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/fluency/512/00d95a/chat.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
-  ]
+  ],
+  "start_url": "/",
+  "background_color": "#000000",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#00d95a",
+  "description": "Secure Decentralized Chat Platform",
+  "orientation": "portrait"
 }
-
