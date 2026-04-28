@@ -184,7 +184,11 @@ if ('serviceWorker' in navigator) {
   });
 }  
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+ if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { scope: '/dchat/' })
+    .then(() => console.log("Service Worker Registered"))
+    .catch(err => console.log("SW Registration failed:", err));
+}
 </script>
 </body>
 </html>
