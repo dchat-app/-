@@ -1,6 +1,6 @@
 {
-  "name": "PWA Test App",
-  "short_name": "TestPWA",
+  "name": "D-Chat memenger App",
+  "short_name": "D-Chat",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#000000",
