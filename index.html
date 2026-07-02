@@ -110,6 +110,7 @@ nav { display: flex; background: #0a0a0a; border-top: 1px solid #1a1a1a; padding
     Theme Color (updates instantly)
   </div>
 
+
   <input type="color" id="colorPicker" style="width:100%; height:50px; border:none; border-radius:12px;">
 
   <button class="logout-btn" onclick="resetTheme()" style="margin-top:10px;">
@@ -135,7 +136,7 @@ nav { display: flex; background: #0a0a0a; border-top: 1px solid #1a1a1a; padding
 
 <script>
 const API_BASE = "https://d-chat.d-chat2345-0a6.workers.dev";
-const P_KEY = "0367fe8aedb68f96e8f8"; // Updated with your verified API key
+const P_KEY = "bca8b337b8b15aab83f8";
 const P_CLUSTER = "eu";
 
 let userID = localStorage.getItem('dchat_id');
@@ -230,12 +231,7 @@ function openChat(fid, name) {
   if (currentSub) pusher.unsubscribe(currentSub);
   currentSub = room;
   const channel = pusher.subscribe(room);
-  
-  // Adjusted bind name to match worker payload event
-  channel.bind('new-message', d => { 
-    if (d.senderID !== userID) renderMsg(d); 
-  });
-  
+  channel.bind('msg', d => { if (d.senderID !== userID) renderMsg(d); });
   document.getElementById('chat-flow').innerHTML = '';
   api(`/messages?userID=${userID}&peerID=${fid}`).then(msgs => { if(Array.isArray(msgs)) msgs.forEach(renderMsg); });
 }
@@ -255,9 +251,7 @@ async function sendMsg() {
   if (!text || !currentPeer) return;
   input.value = '';
   renderMsg({ senderID: userID, text });
-  
-  // Updated endpoint structure to match new stateless server setup parameters
-  await api('/sendMessage', { userID: userID, peerID: currentPeer, text: text });
+  await api('/send', { senderID: userID, receiverID: currentPeer, text });
 }
 
 async function sendReq() {
@@ -296,7 +290,10 @@ async function updateProfile(type) {
 function logout() { localStorage.clear(); location.reload(); }
 if(userID) loadHome();
 
+
+
 const colorPicker = document.getElementById("colorPicker");
+
 const savedColor = localStorage.getItem("themeColor");
 
 // apply saved color on load
@@ -320,6 +317,7 @@ function resetTheme() {
   document.documentElement.style.setProperty("--green", "#00d95a");
   if (colorPicker) colorPicker.value = "#00d95a";
 }
+
 </script>
 </body>
-</html>
+  </html>
